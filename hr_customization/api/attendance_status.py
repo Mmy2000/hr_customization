@@ -31,7 +31,7 @@ def get_attendance_status():
             ],
             "log_type": "IN",
         },
-        fields=["time"],
+        fields=["*"],
         order_by="time asc",
         limit=1,
     )
@@ -47,34 +47,23 @@ def get_attendance_status():
             ],
             "log_type": "OUT",
         },
-        fields=["time"],
+        fields=["*"],
         order_by="time desc",
         limit=1,
     )
 
-    # Get today's attendance
-    attendance = frappe.get_all(
-        "Attendance",
-        filters={"employee": employee, "attendance_date": current_date},
-        fields=["status"],
-        limit=1,
-    )
 
     # Prepare output
-    check_in_time = format_time(checkin[0]["time"]) if checkin else None
-    check_out_time = format_time(checkout[0]["time"]) if checkout else None
-
-    status = attendance[0]["status"] if attendance else "Unknown"
+    check_in_date_time = (checkin[0]["time"]) if checkin else None
+    check_out_date_time = (checkout[0]["time"]) if checkout else None
 
     # Determine the action
-    action = "Check Out" if check_out_time and not check_in_time else "Check In"
-    show_time = check_out_time if check_out_time else check_in_time
-    action_time = "Check_Out_Time" if check_out_time else "Check_In_Time"
+    action = "Check Out" if check_out_date_time and not check_in_date_time else "Check In"
+    show_time = check_out_date_time if check_out_date_time else check_in_date_time
 
     return {
         "attendance_status": {
-            f"{action_time}": show_time,
-            "status": status,
-            "action": action,
+            "Time": show_time,
+            "status": action,
         }
     }

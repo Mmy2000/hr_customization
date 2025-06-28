@@ -7,7 +7,6 @@ from frappe import _
 def mobile_login(usr, pwd):
     user_doc = frappe.get_doc("User", usr)
     roles = [role.role for role in user_doc.roles]
-    print(roles)
 
     if "Employee Self Service" not in roles:
         frappe.local.response.http_status_code = 403
