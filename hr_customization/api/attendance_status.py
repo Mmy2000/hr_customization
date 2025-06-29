@@ -22,8 +22,8 @@ def get_attendance_status():
             }
         }
 
-    # Get IN check-in
-    checkin = frappe.get_all(
+    # Get check-status
+    check_status = frappe.get_all(
         "Employee Checkin",
         filters={
             "employee": employee,
@@ -31,23 +31,6 @@ def get_attendance_status():
                 "between",
                 [f"{current_date} 00:00:00", f"{current_date} 23:59:59"],
             ],
-            "log_type": "IN",
-        },
-        fields=["*"],
-        order_by="time asc",
-        limit=1,
-    )
-
-    # Get OUT check-in
-    checkout = frappe.get_all(
-        "Employee Checkin",
-        filters={
-            "employee": employee,
-            "time": [
-                "between",
-                [f"{current_date} 00:00:00", f"{current_date} 23:59:59"],
-            ],
-            "log_type": "OUT",
         },
         fields=["*"],
         order_by="time desc",
@@ -55,16 +38,12 @@ def get_attendance_status():
     )
 
     # Prepare output
-    check_in_date_time = (checkin[0]["time"]) if checkin else None
-    check_out_date_time = (checkout[0]["time"]) if checkout else None
-
-    # Determine the action
-    action = "Check Out" if check_out_date_time and not check_in_date_time else "Check In"
-    show_time = check_out_date_time if check_out_date_time else check_in_date_time
+    check_status_date_time = (check_status[0]["time"]) if check_status else None
+    action = check_status[0]["log_type"]
 
     return {
         "attendance_status": {
-            "Time": show_time,
+            "Time": check_status_date_time,
             "status": action,
         }
     }
@@ -97,8 +76,11 @@ def update_attendance_status():
         limit=1,
     )
 
-    if last_checkin[0]["log_type"] == "IN":
-        log_type = "OUT"
+    if last_checkin:
+        if last_checkin[0]["log_type"] == "IN":
+            log_type = "OUT"
+        else:
+            log_type = "IN"
     else:
         log_type = "IN"
 

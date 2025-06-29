@@ -24,6 +24,5 @@ def get_attendance_list():
         },
         fields=["*"],
     )
-    pprint.pprint(attendance_list)
 
     return attendance_list
