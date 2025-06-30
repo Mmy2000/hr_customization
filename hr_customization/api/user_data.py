@@ -8,7 +8,24 @@ def get_user_details():
     try:
         user_email = frappe.session.user
         user = frappe.get_doc("User", user_email)
-        return {
+
+        employee_name = frappe.get_value("Employee", {"user_id": user_email}, "name")
+        if not employee_name:
+            frappe.throw(_("No Employee linked with this user."))
+
+        employee = frappe.get_doc("Employee", employee_name)
+
+        employee_info = {
+            "name": employee.employee_name,
+            "employee_id": employee.name,
+            "department": employee.department,
+            "position": employee.designation,
+            "date_of_joining": employee.date_of_joining,
+            "current_address": employee.current_address,
+            "phone_number": employee.cell_number,
+        }
+
+        user_data = {
             "email": user.email,
             "first_name": user.first_name,
             "middle_name": user.middle_name,
@@ -19,9 +36,14 @@ def get_user_details():
             "time_zone": user.time_zone,
             "image": user.user_image,
         }
+
+        return {
+            "user_data":user_data,
+            "employee_info": employee_info,
+        }
+
     except frappe.DoesNotExistError:
         frappe.throw(_("User not found"), frappe.DoesNotExistError)
-
 
 
 @frappe.whitelist()
@@ -76,4 +98,3 @@ def update_user_details(
 
     except frappe.DoesNotExistError:
         frappe.throw(_("User not found"), frappe.DoesNotExistError)
-
