@@ -1,6 +1,7 @@
 import frappe
 from frappe.utils import format_time, today
 import pprint
+from frappe import _
 
 
 @frappe.whitelist()
@@ -9,13 +10,7 @@ def get_attendance_list():
     employee = frappe.get_value("Employee", {"user_id": user}, "name")
 
     if not employee:
-        return {
-            "attendance_status": {
-                "check_in_time": None,
-                "status": "No Employee Linked",
-                "action": "Check In",
-            }
-        }
+        frappe.throw(_("No Employee linked with this user."))
 
     attendance_list = frappe.get_all(
         "Attendance",
