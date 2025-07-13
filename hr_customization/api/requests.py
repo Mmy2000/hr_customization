@@ -344,7 +344,7 @@ def update_request(request_type, docname, data=None):
                         setattr(doc, key, value)
 
                 doc.save()
-                doc.submit()  # Submit the document
+                # doc.submit()  # Submit the document
                 frappe.db.commit()
                 return {
                     "message": f"{request_type} '{docname}' updated and submitted successfully (admin)."
@@ -366,7 +366,7 @@ def update_request(request_type, docname, data=None):
                     setattr(doc, key, value)
 
             doc.save()
-            doc.submit()  # Submit the document
+            # doc.submit()  # Submit the document
             frappe.db.commit()
             return {
                 "message": f"{request_type} '{docname}' updated and submitted successfully."
@@ -375,18 +375,18 @@ def update_request(request_type, docname, data=None):
         elif request_type == "Attendance Request":
             if is_admin_user:
                 for key, value in data.items():
-                    if key != "status" and hasattr(doc, key):
+                    if hasattr(doc, key):
                         setattr(doc, key, value)
 
                 doc.save()
-                doc.submit()
+                # doc.submit()
                 frappe.db.commit()
                 return {
                     "message": f"{request_type} '{docname}' updated and submitted successfully (admin)."
                 }
             else:
                 for key, value in data.items():
-                    if key != "status" and hasattr(doc, key):
+                    if hasattr(doc, key):
                         setattr(doc, key, value)
 
                 doc.save()
@@ -412,3 +412,88 @@ def update_request(request_type, docname, data=None):
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), "Update Request Error")
         frappe.throw(_("An error occurred while updating the request."))
+
+
+import frappe
+from frappe.utils import getdate
+from frappe import _
+
+
+@frappe.whitelist()
+def get_allocated_leaves():
+    user = frappe.session.user
+
+    # Step 1: Get the linked employee
+    employee_id = frappe.get_value("Employee", {"user_id": user}, "name")
+    if not employee_id:
+        frappe.throw(_("No Employee record linked to this user."))
+
+    today = getdate(frappe.utils.today())
+
+    # Step 2: Get leave allocations
+    allocations = frappe.get_all(
+        "Leave Allocation",
+        filters={"employee": employee_id, "docstatus": 1},
+        fields=["name", "leave_type", "from_date", "to_date", "total_leaves_allocated"],
+    )
+
+    result = []
+
+    for alloc in allocations:
+        leave_type = alloc.leave_type
+        total_alloc = alloc.total_leaves_allocated or 0
+
+        # Step 3: Check if expired
+        expired = 0
+        if alloc.to_date and getdate(alloc.to_date) < today:
+            expired = total_alloc
+
+        # Step 4: Get used leave days
+        used = (
+            frappe.db.sql(
+                """
+            SELECT SUM(total_leave_days)
+            FROM `tabLeave Application`
+            WHERE employee = %s
+              AND leave_type = %s
+              AND from_date >= %s AND to_date <= %s
+              AND status = 'Approved'
+              AND docstatus = 1
+        """,
+                (employee_id, leave_type, alloc.from_date, alloc.to_date),
+            )[0][0]
+            or 0
+        )
+
+        # Step 5: Get pending leave days
+        pending = (
+            frappe.db.sql(
+                """
+            SELECT SUM(total_leave_days)
+            FROM `tabLeave Application`
+            WHERE employee = %s
+              AND leave_type = %s
+              AND from_date >= %s AND to_date <= %s
+              AND status = 'Applied'
+              AND docstatus = 0
+        """,
+                (employee_id, leave_type, alloc.from_date, alloc.to_date),
+            )[0][0]
+            or 0
+        )
+
+        # Step 6: Compute available leaves
+        available = max(total_alloc - used - expired, 0)
+
+        result.append(
+            {
+                "leave_type": leave_type,
+                "total_allocated": total_alloc,
+                "expired": expired,
+                "used": used,
+                "pending": pending,
+                "available": available,
+            }
+        )
+
+    return result
