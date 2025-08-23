@@ -21,3 +21,22 @@ def get_attendance_list():
     )
 
     return attendance_list
+
+@frappe.whitelist()
+def get_check_in_and_out_times():
+
+    user = frappe.session.user
+    employee_id = frappe.get_value("Employee", {"user_id": user}, "name")
+    # Get today's date
+    today_date = today()
+
+    # Fetch attendance records for the employee for today
+    attendance_records = frappe.get_all(
+        "Employee Checkin",
+        filters={"employee": employee_id},
+        fields=['*'],
+    )
+
+    return {
+        "attendance_records": attendance_records
+    }

@@ -43,8 +43,9 @@ def get_shift_request_approver():
 
     # Fetch full Employee doc to access fields
     employee_doc = frappe.get_doc("Employee", employee_id)
+    company = employee_doc.company
 
-    return {"approver": employee_doc.shift_request_approver}
+    return {"approver": employee_doc.shift_request_approver, "company": company}
 
 
 @frappe.whitelist(allow_guest=False)
