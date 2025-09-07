@@ -21,7 +21,7 @@ def change_password(old_password, new_password):
         frappe.db.commit()
 
         return {"success": True, "message": _("Password updated successfully.")}
-    
+
     except frappe.DoesNotExistError:
         return {"success": False, "error": _("User not found.")}
 
@@ -30,3 +30,5 @@ def change_password(old_password, new_password):
 
     except Exception as e:
         return {"success": False, "error": _("An unexpected error occurred. Please contact support."), "details": str(e)}
+
+

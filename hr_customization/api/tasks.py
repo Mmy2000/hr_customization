@@ -47,3 +47,13 @@ def get_tasks(status=None):
             )  # fallback for unknown status
 
     return {"tasks": tasks, "status_counts": status_counts}
+
+
+@frappe.whitelist(allow_guest=False)
+def get_task_details(name):
+    task = frappe.get_all(
+        "ToDo",
+        filters={"name":name},
+        fields=["*"],
+    )
+    return task
