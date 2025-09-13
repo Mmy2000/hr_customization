@@ -242,3 +242,5 @@ app_license = "mit"
 # 	"Logging DocType Name": 30  # days to retain logs
 # }
 
+
+doctype_js = {"print format for mobile": "public/js/print_format_for_mobile.js"}

@@ -35,23 +35,35 @@ def get_doc_pdf(doctype, docname, format="Standard"):
 @frappe.whitelist()
 def get_print_formats(doctype):
     """
-    API to list all available Print Formats for a given DocType
+    API to list available Print Formats for a given DocType (only mobile ones).
     :param doctype: DocType name (e.g. "Sales Invoice", "Salary Slip")
-    :return: List of print formats
+    :return: List of print formats with details
     """
     try:
         # Check if the DocType exists
         if not frappe.db.exists("DocType", doctype):
             return {"error": f"DocType {doctype} not found"}
 
-        # Fetch all print formats linked to this DocType
-        formats = frappe.get_all(
-            "Print Format",
-            filters={"doc_type": doctype},
-            fields=["name", "custom_format", "disabled", "module"],
+        # Get all print formats marked for mobile for this doctype
+        mobile_formats = frappe.get_all(
+            "print format for mobile",
+            filters={"doctype_name": doctype, "for_mobile": 1},
+            fields=["print_format"],
         )
 
-        # Add Standard as default (ERPNext always supports it)
+        # Extract only names
+        format_names = [f["print_format"] for f in mobile_formats]
+
+        # Fetch details from Print Format table
+        formats = []
+        if format_names:
+            formats = frappe.get_all(
+                "Print Format",
+                filters={"name": ["in", format_names]},
+                fields=["name", "custom_format", "disabled", "module"],
+            )
+
+        # Always add Standard as default
         formats.insert(
             0, {"name": "Standard", "custom_format": 0, "disabled": 0, "module": "Core"}
         )
