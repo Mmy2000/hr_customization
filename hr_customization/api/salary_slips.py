@@ -2,15 +2,18 @@ import frappe
 from frappe.utils import format_time, today, formatdate
 import pprint
 import datetime
+from frappe import _
 
 
 @frappe.whitelist()
 def get_salary_slips(year=None):
     user = frappe.session.user
+    user_lang = frappe.db.get_value("User", user, "language") or frappe.local.lang
+    frappe.local.lang = user_lang
     employee = frappe.get_doc("Employee", {"user_id": user})
 
     if not employee:
-        return "No Employee Linked"
+        return {"error": _("No Employee Linked")}
 
     # Default to current year if not provided
     if not year:
@@ -35,7 +38,11 @@ def get_salary_slips(year=None):
     for slip in salary_slips_list:
         label = formatdate(slip["end_date"], "MMMM yyyy")
         result.append(
-            {"label": label, "net_salary": slip["net_pay"], "name": slip["name"]}
+            {
+                "label": _(label),  # month/year label translated
+                "net_salary": slip["net_pay"],
+                "name": slip["name"],
+            }
         )
 
     return result
@@ -44,35 +51,43 @@ def get_salary_slips(year=None):
 @frappe.whitelist()
 def get_salary_slips_details(name):
     user = frappe.session.user
+    user_lang = frappe.db.get_value("User", user, "language") or frappe.local.lang
+    frappe.local.lang = user_lang
+
+    # Ensure employee exists
     employee = frappe.get_doc("Employee", {"user_id": user})
-
     if not employee:
-        return "No Employee Linked"
+        return {"error": _("No Employee Linked")}
 
-    # Get the salary slip document
+    # Get salary slip doc
     salary_slip = frappe.get_doc("Salary Slip", name)
 
-    # Check if the salary slip belongs to the current user
+    # Verify ownership
     if salary_slip.employee != employee.name:
-        return "Access Denied"
+        return {"error": _("Access Denied")}
 
-    # Employee Info
+    # Employee Info (translated)
     employee_info = {
-        "name": employee.employee_name,
+        "name": _(employee.employee_name),
         "employee_id": employee.name,
-        "department": employee.department,
-        "position": employee.designation,
+        "department": _(employee.department) if employee.department else None,
+        "position": _(employee.designation) if employee.designation else None,
     }
 
-    # Payslip Title
-    payslip_title = f"Payslip {formatdate(salary_slip.end_date, 'MMMM yyyy')}"
+    # Payslip Title (translated month/year)
+    payslip_title = _("Payslip {0}").format(
+        formatdate(salary_slip.end_date, "MMMM yyyy")
+    )
 
     # Earnings
     earnings = []
     total_earnings = 0
     for earning in salary_slip.earnings:
         earnings.append(
-            {"component": earning.salary_component, "amount": earning.amount}
+            {
+                "component": _(earning.salary_component),
+                "amount": earning.amount,
+            }
         )
         total_earnings += earning.amount
 
@@ -81,11 +96,14 @@ def get_salary_slips_details(name):
     total_deductions = 0
     for deduction in salary_slip.deductions:
         deductions.append(
-            {"component": deduction.salary_component, "amount": deduction.amount}
+            {
+                "component": _(deduction.salary_component),
+                "amount": deduction.amount,
+            }
         )
         total_deductions += deduction.amount
 
-    # Bank Account (if available)
+    # Bank Account
     bank_account = getattr(salary_slip, "bank_account_no", None) or getattr(
         employee, "bank_ac_no", None
     )
@@ -93,7 +111,7 @@ def get_salary_slips_details(name):
     # Payment Date
     payment_date = (
         salary_slip.payment_date
-        if hasattr(salary_slip, "payment_date")
+        if hasattr(salary_slip, "payment_date") and salary_slip.payment_date
         else salary_slip.end_date
     )
 

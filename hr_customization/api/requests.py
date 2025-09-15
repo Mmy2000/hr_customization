@@ -1,9 +1,8 @@
 import frappe
-from frappe.utils import format_time, today
-import pprint
-from frappe.utils import now
-from frappe import _
+from frappe.utils import format_time, today, getdate
 import json
+import frappe
+from frappe import _
 
 
 # for shift requests
@@ -117,13 +116,15 @@ def get_expense_claim_types():
 @frappe.whitelist(allow_guest=False)
 def get_all_requests(request_type=None, status=None):
     user = frappe.session.user
+    user_lang = frappe.db.get_value("User", user, "language") or frappe.local.lang
+    frappe.local.lang = user_lang
 
-    # Get the linked employee
+    # Get linked employee
     employee_id = frappe.get_value("Employee", {"user_id": user}, "name")
     if not employee_id:
         frappe.throw(_("No Employee record linked to this user."))
 
-    # Define Doctypes and status fields
+    # Define request types
     request_types = {
         "Leave Application": {"doctype": "Leave Application", "status_field": "status"},
         "Shift Request": {"doctype": "Shift Request", "status_field": "status"},
@@ -144,29 +145,31 @@ def get_all_requests(request_type=None, status=None):
         doctype = info["doctype"]
         status_field = info["status_field"]
 
-        # Filter by employee and status
+        # Base filters
         filters = {"employee": employee_id}
         if status:
             filters[status_field] = status
 
-        # Get all requests
+        # Fetch records
         records = frappe.get_all(doctype, filters=filters, fields=["*"])
-        for r in records:
-            r["type"] = label
-            requests.append(r)
 
-        # Get status options for dropdown
+        # Translate fields
+        for r in records:
+            translated = {}
+            for k, v in r.items():
+                translated[k] = _(v) if isinstance(v, str) else v
+            translated["type"] = _(label)
+            requests.append(translated)
+
+        # Build translated status options
         field_meta = frappe.get_meta(doctype).get_field(status_field)
         options = []
         if field_meta and field_meta.fieldtype == "Select":
             raw = field_meta.options or ""
-            options = [opt.strip() for opt in raw.split("\n") if opt.strip()]
-        status_options[label] = options
+            options = [_(opt.strip()) for opt in raw.split("\n") if opt.strip()]
+        status_options[_(label)] = options
 
-    return {
-        "requests": requests,
-        "status_options": status_options
-    }
+    return {"requests": requests, "status_options": status_options}
 
 
 @frappe.whitelist(allow_guest=False)
@@ -415,16 +418,13 @@ def update_request(request_type, docname, data=None):
         frappe.throw(_("An error occurred while updating the request."))
 
 
-import frappe
-from frappe.utils import getdate
-from frappe import _
-
-
 @frappe.whitelist()
 def get_allocated_leaves():
     user = frappe.session.user
+    user_lang = frappe.db.get_value("User", user, "language") or frappe.local.lang
+    frappe.local.lang = user_lang
 
-    # Step 1: Get the linked employee
+    # Step 1: Get linked employee
     employee_id = frappe.get_value("Employee", {"user_id": user}, "name")
     if not employee_id:
         frappe.throw(_("No Employee record linked to this user."))
@@ -453,14 +453,14 @@ def get_allocated_leaves():
         used = (
             frappe.db.sql(
                 """
-            SELECT SUM(total_leave_days)
-            FROM `tabLeave Application`
-            WHERE employee = %s
-              AND leave_type = %s
-              AND from_date >= %s AND to_date <= %s
-              AND status = 'Approved'
-              AND docstatus = 1
-        """,
+                SELECT SUM(total_leave_days)
+                FROM `tabLeave Application`
+                WHERE employee = %s
+                  AND leave_type = %s
+                  AND from_date >= %s AND to_date <= %s
+                  AND status = 'Approved'
+                  AND docstatus = 1
+            """,
                 (employee_id, leave_type, alloc.from_date, alloc.to_date),
             )[0][0]
             or 0
@@ -470,14 +470,14 @@ def get_allocated_leaves():
         pending = (
             frappe.db.sql(
                 """
-            SELECT SUM(total_leave_days)
-            FROM `tabLeave Application`
-            WHERE employee = %s
-              AND leave_type = %s
-              AND from_date >= %s AND to_date <= %s
-              AND status = 'Applied'
-              AND docstatus = 0
-        """,
+                SELECT SUM(total_leave_days)
+                FROM `tabLeave Application`
+                WHERE employee = %s
+                  AND leave_type = %s
+                  AND from_date >= %s AND to_date <= %s
+                  AND status = 'Applied'
+                  AND docstatus = 0
+            """,
                 (employee_id, leave_type, alloc.from_date, alloc.to_date),
             )[0][0]
             or 0
@@ -486,9 +486,10 @@ def get_allocated_leaves():
         # Step 6: Compute available leaves
         available = max(total_alloc - used - expired, 0)
 
+        # Step 7: Add translated record
         result.append(
             {
-                "leave_type": leave_type,
+                "leave_type": _(leave_type),
                 "total_allocated": total_alloc,
                 "expired": expired,
                 "used": used,
