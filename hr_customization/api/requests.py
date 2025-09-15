@@ -421,17 +421,17 @@ def update_request(request_type, docname, data=None):
 @frappe.whitelist()
 def get_allocated_leaves():
     user = frappe.session.user
+
+    # set language to user language
     user_lang = frappe.db.get_value("User", user, "language") or frappe.local.lang
     frappe.local.lang = user_lang
 
-    # Step 1: Get linked employee
     employee_id = frappe.get_value("Employee", {"user_id": user}, "name")
     if not employee_id:
         frappe.throw(_("No Employee record linked to this user."))
 
     today = getdate(frappe.utils.today())
 
-    # Step 2: Get leave allocations
     allocations = frappe.get_all(
         "Leave Allocation",
         filters={"employee": employee_id, "docstatus": 1},
@@ -444,12 +444,10 @@ def get_allocated_leaves():
         leave_type = alloc.leave_type
         total_alloc = alloc.total_leaves_allocated or 0
 
-        # Step 3: Check if expired
         expired = 0
         if alloc.to_date and getdate(alloc.to_date) < today:
             expired = total_alloc
 
-        # Step 4: Get used leave days
         used = (
             frappe.db.sql(
                 """
@@ -466,7 +464,6 @@ def get_allocated_leaves():
             or 0
         )
 
-        # Step 5: Get pending leave days
         pending = (
             frappe.db.sql(
                 """
@@ -483,13 +480,11 @@ def get_allocated_leaves():
             or 0
         )
 
-        # Step 6: Compute available leaves
         available = max(total_alloc - used - expired, 0)
 
-        # Step 7: Add translated record
         result.append(
             {
-                "leave_type": _(leave_type),
+                "leave_type": _(leave_type),  # ✅ translated per user language
                 "total_allocated": total_alloc,
                 "expired": expired,
                 "used": used,
