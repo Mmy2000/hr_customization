@@ -1,7 +1,7 @@
 # your_app/api.py
 import frappe
 from frappe.utils.pdf import get_pdf
-
+from frappe import _
 
 @frappe.whitelist()
 def get_doc_pdf(doctype, docname, format="Standard"):
@@ -11,6 +11,11 @@ def get_doc_pdf(doctype, docname, format="Standard"):
     :param docname: Document name (e.g. "SINV-0001", "SAL-PSL-0001")
     :param format: Print Format name (default = "Standard")
     """
+
+    user = frappe.session.user
+    user_lang = frappe.db.get_value("User", user, "language") or frappe.local.lang
+    frappe.local.lang = user_lang
+
     try:
         # Ensure the DocType exists
         if not frappe.db.exists(doctype, docname):
@@ -36,13 +41,14 @@ def get_doc_pdf(doctype, docname, format="Standard"):
 def get_print_formats(doctype):
     """
     API to list available Print Formats for a given DocType (only mobile ones).
-    :param doctype: DocType name (e.g. "Sales Invoice", "Salary Slip")
-    :return: List of print formats with details
     """
+    user = frappe.session.user
+    user_lang = frappe.db.get_value("User", user, "language") or frappe.local.lang
+    frappe.local.lang = user_lang
+
     try:
-        # Check if the DocType exists
         if not frappe.db.exists("DocType", doctype):
-            return {"error": f"DocType {doctype} not found"}
+            return {"error": _(f"DocType {doctype} not found")}
 
         # Get all print formats marked for mobile for this doctype
         mobile_formats = frappe.get_all(
@@ -51,10 +57,8 @@ def get_print_formats(doctype):
             fields=["print_format"],
         )
 
-        # Extract only names
         format_names = [f["print_format"] for f in mobile_formats]
 
-        # Fetch details from Print Format table
         formats = []
         if format_names:
             formats = frappe.get_all(
@@ -63,12 +67,23 @@ def get_print_formats(doctype):
                 fields=["name", "custom_format", "disabled", "module"],
             )
 
-        # Always add Standard as default
+            # Translate fields
+            for f in formats:
+                f["name"] = _(f["name"])
+                f["module"] = _(f["module"])
+
+        # Always add Standard as default (translated)
         formats.insert(
-            0, {"name": "Standard", "custom_format": 0, "disabled": 0, "module": "Core"}
+            0,
+            {
+                "name": _("Standard"),
+                "custom_format": 0,
+                "disabled": 0,
+                "module": _("Core"),
+            },
         )
 
-        return {"doctype": doctype, "print_formats": formats}
+        return {"doctype": _(doctype), "print_formats": formats}
 
     except Exception as e:
         frappe.local.response["http_status_code"] = 500
