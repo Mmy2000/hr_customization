@@ -98,3 +98,4 @@ def update_user_details(
 
     except frappe.DoesNotExistError:
         frappe.throw(_("User not found"), frappe.DoesNotExistError)
+

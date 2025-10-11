@@ -153,6 +153,7 @@ def secure_employee_checkin(
     employee_name = frappe.get_value(
         "Employee", {employee_fieldname: employee_field_value}, "name"
     )
+
     if not employee_name:
         frappe.throw(_("No Employee found for the provided identifier."))
 
