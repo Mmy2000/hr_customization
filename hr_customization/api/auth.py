@@ -66,14 +66,14 @@ def generate_employee_otp(email):
         message=f"Your OTP is {otp}",
         now=True,
     )
-    # name = frappe.get_value("User", user, "first_name")
-    # phone_number = frappe.get_value(
-    #     "User", user, "mobile_no"
-    # )  # Assuming 'phone' field exists
-    # if phone_number:
-    #     send_whatsapp_message(phone_number,name,otp)
-    # else:
-    #     frappe.log_error("User phone number not found", "WhatsApp OTP")
+    name = frappe.get_value("User", user, "first_name")
+    phone_number = frappe.get_value(
+        "User", user, "mobile_no"
+    )  # Assuming 'phone' field exists
+    if phone_number:
+        send_whatsapp_message(phone_number,name,otp)
+    else:
+        frappe.log_error("User phone number not found", "WhatsApp OTP")
 
     return {"message": "OTP generated successfully"}
 
@@ -108,32 +108,24 @@ def send_whatsapp_message(phone_number, name, otp):
         "Authorization": f"Bearer {ACCESS_TOKEN}",
         "Content-Type": "application/json",
     }
-    # payload = {
-    #     "messaging_product": "whatsapp",
-    #     "to": phone_number,
-    #     "type": "template",
-    #     "template": {
-    #         "name": "hinetsoft",  # template name (must match exactly)
-    #         "language": {"code": "en_US"},  # or use "ar" if the template is in Arabic
-    #         "components": [
-    #             {
-    #                 "type": "body",
-    #                 "parameters": [
-    #                     {"type": "text", "text": name},  # {{1}}
-    #                     {"type": "text", "text": otp},  # {{2}}
-    #                 ],
-    #             }
-    #         ],
-    #     },
-    # }
     payload = {
         "messaging_product": "whatsapp",
-        "to": phone_number,  # Must be in international format e.g. "201234567890"
-        "type": "text",
-        "text": {"body": otp},
+        "to": phone_number,
+        "type": "template",
+        "template": {
+            "name": "otp",  # template name (must match exactly)
+            "language": {"code": "en"},  # or use "ar" if the template is in Arabic
+            "components": [
+                {
+                    "type": "body",
+                    "parameters": [
+                        {"type": "text", "text": name},  # {{1}}
+                        {"type": "text", "text": otp},  # {{2}}
+                    ],
+                }
+            ],
+        },
     }
-
-    print("Sending WhatsApp message to:", phone_number)
 
     response = requests.post(url, json=payload, headers=headers)
 
