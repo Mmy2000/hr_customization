@@ -48,6 +48,22 @@ def get_shift_request_approver():
 
 
 @frappe.whitelist(allow_guest=False)
+def get_leave_application_approver():
+    user = frappe.session.user
+
+    # Get the linked employee ID
+    employee_id = frappe.get_value("Employee", {"user_id": user}, "name")
+    if not employee_id:
+        frappe.throw(_("No Employee record linked to this user."))
+
+    # Fetch full Employee doc to access fields
+    employee_doc = frappe.get_doc("Employee", employee_id)
+    company = employee_doc.company
+
+    return {"approver": employee_doc.leave_approver, "company": company}
+
+
+@frappe.whitelist(allow_guest=False)
 def get_reasons():
     meta = frappe.get_meta("Attendance Request")
     reason_field = meta.get_field("reason")
