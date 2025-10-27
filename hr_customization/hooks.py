@@ -244,3 +244,10 @@ app_license = "mit"
 
 
 doctype_js = {"print format for mobile": "public/js/print_format_for_mobile.js"}
+
+
+doc_events = {
+    "Notification Log": {
+        "after_insert": "hr_customization.api.fcm_token.trigger_notification_fcm"
+    }
+}
