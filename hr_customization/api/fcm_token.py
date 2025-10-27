@@ -2,6 +2,8 @@ import frappe
 
 import firebase_admin
 from firebase_admin import credentials, messaging
+from frappe.utils import strip_html
+
 
 @frappe.whitelist(allow_guest=False)
 def get_fcm_token():
@@ -61,6 +63,7 @@ def send_push_notification(
     )
     # Send notification
     response = messaging.send(message)
+    print("Successfully sent message:", response)
     return {"message": "Notification sent successfully", "response": response}
 
 
@@ -73,8 +76,11 @@ def trigger_notification_fcm(doc, method):
     if not doc.for_user:
         return  # Ensure there's a target user
 
-    title = doc.subject or "New Notification"
-    body = doc.email_content or doc.type or "You have a new notification."
+    # title = doc.subject or "New Notification"
+    # body = doc.email_content or doc.type or "You have a new notification."
+    title = strip_html(doc.subject or "New Notification")
+    body = strip_html(doc.email_content or doc.type or "You have a new notification.")
+
 
     # Reuse your existing method (session.user isn't needed since we pass target user)
     try:
