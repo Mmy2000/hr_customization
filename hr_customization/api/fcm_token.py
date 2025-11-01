@@ -89,23 +89,3 @@ def trigger_notification_fcm(doc, method):
         frappe.log_error(frappe.get_traceback(), "FCM Push Send Error")
 
 
-# def trigger_notification_fcm(doc, method):
-#     """
-#     Triggered after insert of Notification Log (or any doctype).
-#     Enqueues FCM notification to be sent asynchronously.
-#     """
-#     if not doc.for_user:
-#         return
-
-#     title = doc.subject or "New Notification"
-#     body = doc.email_content or doc.type or "You have a new notification."
-
-#     # Enqueue sending, runs in background
-#     frappe.enqueue(
-#         "hr_customization.api.fcm_token.send_push_notification",
-#         queue="default",  # Or 'short' if quick tasks, or 'long' if heavy
-#         user=doc.for_user,
-#         title=title,
-#         body=body,
-#         now=False,  # Ensures it runs asynchronously
-#     )

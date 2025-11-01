@@ -1,6 +1,5 @@
 import frappe
 from frappe.utils import format_time, today
-import pprint
 from frappe import _
 
 
@@ -59,3 +58,34 @@ def get_check_in_and_out_times():
         translated_records.append(translated)
 
     return {"attendance_records": translated_records}
+
+
+@frappe.whitelist(allow_guest=False)
+def get_monthly_attendance(month, year, employee=None, company=None):
+    filters = {}
+    if employee:
+        filters["employee"] = employee
+    if company:
+        filters["company"] = company
+    if month and year:
+        filters["attendance_date"] = ["between", get_month_date_range(year, month)]
+
+    records = frappe.get_all(
+        "Attendance",
+        filters=filters,
+        fields=["employee", "employee_name", "attendance_date", "status", "company"],
+        order_by="attendance_date asc",
+    )
+
+    return {"message": "Success", "data": records}
+
+
+def get_month_date_range(year, month_name):
+    import calendar
+    import datetime
+
+    month_number = list(calendar.month_name).index(month_name)
+    start_date = datetime.date(int(year), month_number, 1)
+    last_day = calendar.monthrange(int(year), month_number)[1]
+    end_date = datetime.date(int(year), month_number, last_day)
+    return [start_date, end_date]
