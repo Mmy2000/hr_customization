@@ -1,7 +1,8 @@
 import frappe
-from frappe.utils import format_time, today
+from frappe.utils import format_time, today, getdate
 from frappe import _
-
+import datetime
+import calendar
 
 @frappe.whitelist()
 def get_attendance_list():
@@ -62,22 +63,82 @@ def get_check_in_and_out_times():
 
 @frappe.whitelist(allow_guest=False)
 def get_monthly_attendance(month, year, employee=None, company=None):
+
+    # --- build date range ---
+    start_date, end_date = get_month_date_range(year, month)
+
+    # --- get all attendance records ---
     filters = {}
     if employee:
         filters["employee"] = employee
     if company:
         filters["company"] = company
-    if month and year:
-        filters["attendance_date"] = ["between", get_month_date_range(year, month)]
+    filters["attendance_date"] = ["between", [start_date, end_date]]
 
-    records = frappe.get_all(
+    attendance_records = frappe.get_all(
         "Attendance",
         filters=filters,
-        fields=["employee", "employee_name", "attendance_date", "status", "company"],
-        order_by="attendance_date asc",
+        fields=["attendance_date", "status"],
     )
 
-    return {"message": "Success", "data": records}
+    # map attendance by date
+    attendance_map = {getdate(r.attendance_date): r.status for r in attendance_records}
+
+    # --- handle Weekly Offs (WO) and Holidays (H) ---
+    holidays = get_holidays(employee, company, start_date, end_date)
+    weekly_offs = get_weekly_offs(start_date, end_date)
+
+    # --- build full month list ---
+    result = []
+    current_date = start_date
+    while current_date <= end_date:
+        day_status = attendance_map.get(current_date)
+
+        if not day_status:
+            if current_date in holidays:
+                day_status = "Holiday | H"
+            elif current_date in weekly_offs:
+                day_status = "Weekly Off | WO"
+            else:
+                day_status = "Absent | A"  # default to Absent if no record
+
+        result.append({"date": current_date, "status": day_status})
+
+        current_date += datetime.timedelta(days=1)
+
+    return {"message": "Success", "data": result}
+
+
+def get_holidays(employee, company, start_date, end_date):
+    """Return a list of holiday dates within the range."""
+    holidays = []
+    holiday_list = frappe.db.get_value("Employee", employee, "holiday_list")
+    if not holiday_list and company:
+        holiday_list = frappe.db.get_value("Company", company, "default_holiday_list")
+
+    if holiday_list:
+        holiday_dates = frappe.get_all(
+            "Holiday",
+            filters={
+                "parent": holiday_list,
+                "holiday_date": ["between", [start_date, end_date]],
+            },
+            pluck="holiday_date",
+        )
+        holidays = [frappe.utils.getdate(h) for h in holiday_dates]
+
+    return holidays
+
+
+def get_weekly_offs(start_date, end_date):
+    """Mark weekends (Saturday/Sunday) as weekly offs."""
+    weekly_offs = []
+    current_date = start_date
+    while current_date <= end_date:
+        if current_date.weekday() in (5, 6):  # Saturday=5, Sunday=6
+            weekly_offs.append(current_date)
+        current_date += datetime.timedelta(days=1)
+    return weekly_offs
 
 
 def get_month_date_range(year, month_name):
