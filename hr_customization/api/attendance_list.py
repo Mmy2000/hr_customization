@@ -63,11 +63,13 @@ def get_check_in_and_out_times():
 
 @frappe.whitelist(allow_guest=False)
 def get_monthly_attendance(month, year, employee=None, company=None):
+    import datetime
+    from frappe.utils import getdate
 
     # --- build date range ---
     start_date, end_date = get_month_date_range(year, month)
 
-    # --- get all attendance records ---
+    # --- get attendance records ---
     filters = {}
     if employee:
         filters["employee"] = employee
@@ -81,14 +83,14 @@ def get_monthly_attendance(month, year, employee=None, company=None):
         fields=["attendance_date", "status"],
     )
 
-    # map attendance by date
     attendance_map = {getdate(r.attendance_date): r.status for r in attendance_records}
 
-    # --- handle Weekly Offs (WO) and Holidays (H) ---
-    holidays = get_holidays(employee, company, start_date, end_date)
-    weekly_offs = get_weekly_offs(start_date, end_date)
+    # --- get holidays and weekly offs dynamically from system ---
+    holidays, weekly_offs = get_holidays_and_weekly_offs(
+        employee, company, start_date, end_date
+    )
 
-    # --- build full month list ---
+    # --- build complete attendance list ---
     result = []
     current_date = start_date
     while current_date <= end_date:
@@ -100,50 +102,48 @@ def get_monthly_attendance(month, year, employee=None, company=None):
             elif current_date in weekly_offs:
                 day_status = "Weekly Off | WO"
             else:
-                day_status = "Absent | A"  # default to Absent if no record
+                day_status = "Absent | A"
 
         result.append({"date": current_date, "status": day_status})
-
         current_date += datetime.timedelta(days=1)
 
     return {"message": "Success", "data": result}
 
 
-def get_holidays(employee, company, start_date, end_date):
-    """Return a list of holiday dates within the range."""
-    holidays = []
+def get_holidays_and_weekly_offs(employee, company, start_date, end_date):
+    """Return separate lists of public holidays and weekly offs based on the system Holiday List."""
+
+    # get holiday list assigned to employee or company
     holiday_list = frappe.db.get_value("Employee", employee, "holiday_list")
     if not holiday_list and company:
         holiday_list = frappe.db.get_value("Company", company, "default_holiday_list")
 
-    if holiday_list:
-        holiday_dates = frappe.get_all(
-            "Holiday",
-            filters={
-                "parent": holiday_list,
-                "holiday_date": ["between", [start_date, end_date]],
-            },
-            pluck="holiday_date",
-        )
-        holidays = [frappe.utils.getdate(h) for h in holiday_dates]
+    if not holiday_list:
+        return [], []  # no holiday list configured
 
-    return holidays
+    # fetch all holidays for the month
+    holidays_data = frappe.get_all(
+        "Holiday",
+        filters={
+            "parent": holiday_list,
+            "holiday_date": ["between", [start_date, end_date]],
+        },
+        fields=["holiday_date", "weekly_off"],
+    )
 
-
-def get_weekly_offs(start_date, end_date):
-    """Mark weekends (Saturday/Sunday) as weekly offs."""
+    holidays = []
     weekly_offs = []
-    current_date = start_date
-    while current_date <= end_date:
-        if current_date.weekday() in (5, 6):  # Saturday=5, Sunday=6
-            weekly_offs.append(current_date)
-        current_date += datetime.timedelta(days=1)
-    return weekly_offs
+    for h in holidays_data:
+        date = getdate(h.holiday_date)
+        if h.is_weekly_off:
+            weekly_offs.append(date)
+        else:
+            holidays.append(date)
+
+    return holidays, weekly_offs
 
 
 def get_month_date_range(year, month_name):
-    import calendar
-    import datetime
 
     month_number = list(calendar.month_name).index(month_name)
     start_date = datetime.date(int(year), month_number, 1)
