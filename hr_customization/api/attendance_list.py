@@ -63,8 +63,6 @@ def get_check_in_and_out_times():
 
 @frappe.whitelist(allow_guest=False)
 def get_monthly_attendance(month, year, employee=None, company=None):
-    import datetime
-    from frappe.utils import getdate
 
     # --- build date range ---
     start_date, end_date = get_month_date_range(year, month)
@@ -135,7 +133,7 @@ def get_holidays_and_weekly_offs(employee, company, start_date, end_date):
     weekly_offs = []
     for h in holidays_data:
         date = getdate(h.holiday_date)
-        if h.is_weekly_off:
+        if h.weekly_off:
             weekly_offs.append(date)
         else:
             holidays.append(date)
