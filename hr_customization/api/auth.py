@@ -3,12 +3,18 @@ from frappe.auth import LoginManager
 from frappe import _
 import random
 import requests
+from hr_customization.validations.validations import validate_password_strength
 
 
 @frappe.whitelist(allow_guest=True)
 def mobile_login(usr, pwd):
     user_doc = frappe.get_doc("User", usr)
     roles = [role.role for role in user_doc.roles]
+
+    validation_error = validate_password_strength(pwd)
+    if validation_error:
+        return {"success": False, "error": validation_error}
+
 
     if "Employee Self Service" not in roles:
         frappe.local.response.http_status_code = 403
