@@ -3,6 +3,7 @@ from frappe.utils import format_time, today, getdate
 import json
 import frappe
 from frappe import _
+from hr_customization.validations.validations import handle_request_error
 
 
 # for shift requests
@@ -271,9 +272,12 @@ def create_request(request_type, data):
             )
 
     # Create and insert the document
-    doc = frappe.get_doc({"doctype": doctype, **data})
-    doc.insert()
-    frappe.db.commit()
+    try:
+        doc = frappe.get_doc({"doctype": doctype, **data})
+        doc.insert()
+        frappe.db.commit()
+    except Exception as e:
+        handle_request_error(e)
 
     return {"message": f"{request_type} created successfully.", "docname": doc.name}
 
