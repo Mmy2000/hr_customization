@@ -116,7 +116,17 @@ def get_identification_document_type():
 
 @frappe.whitelist(allow_guest=False)
 def get_cost_center():
-    costs = frappe.get_all("Cost Center", fields=["name"])
+    user = frappe.session.user
+
+    # Get the linked employee ID
+    employee_id = frappe.get_value("Employee", {"user_id": user}, "name")
+    if not employee_id:
+        frappe.throw(_("No Employee record linked to this user."))
+
+    # Fetch full Employee doc to access fields
+    employee_doc = frappe.get_doc("Employee", employee_id)
+    company = employee_doc.company
+    costs = frappe.get_all("Cost Center", fields=["name"], filters={"company": company})
     return [c.name for c in costs]
 
 
