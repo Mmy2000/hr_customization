@@ -142,6 +142,7 @@ def send_whatsapp_message(phone_number, name, otp):
         print("WhatsApp send failed:", response.text)
         frappe.logger().error(f"WhatsApp message failed: {response.text}")
 
+
 @frappe.whitelist(allow_guest=True)
 def register_employee(email, first_name, last_name, password):
     """Register a new employee user"""
@@ -152,15 +153,20 @@ def register_employee(email, first_name, last_name, password):
     if validation_error:
         return {"success": False, "error": validation_error}
 
-    user_doc = frappe.get_doc({
-        "doctype": "User",
-        "email": email,
-        "first_name": first_name,
-        "last_name": last_name,
-        "enabled": 1,
-        "roles": [{"role": "Employee Self Service"}],
-        "new_password": password
-    })
+    user_doc = frappe.get_doc(
+        {
+            "doctype": "User",
+            "email": email,
+            "first_name": first_name,
+            "last_name": last_name,
+            "enabled": 1,
+            "roles": [
+                {"role": "Mobile App"},  # ✅ added here
+            ],
+            "new_password": password,
+        }
+    )
+
     user_doc.insert(ignore_permissions=True)
     frappe.db.commit()
 
